@@ -1,85 +1,84 @@
+# pylint:disable = import-error
+"""
+This module defines methods for building a vector store.
+"""
 import os
-import json
-import time
-import weaviate
 from dotenv import load_dotenv
-from langchain_experimental.text_splitter import SemanticChunker
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain.text_splitter import MarkdownHeaderTextSplitter
-from langchain_core.documents.base import Document
 from langchain_weaviate.vectorstores import WeaviateVectorStore
-from langchain_community.vectorstores import Weaviate
-
 from loguru import logger
+from src.models import SplitType, IndexConfig
+from src.utils import semantic_split_sections, paragraph_split_sections
 
-SEMANTIC_CHUNKING_MODEL = os.getenv(key='SEMANTIC_CHUNKING_MODEL', default="sentence-transformers/all-mpnet-base-v2")
+SEMANTIC_CHUNKING_MODEL = os.getenv(key='SEMANTIC_CHUNKING_MODEL',
+                                    default="sentence-transformers/all-MiniLM-L6-v2")
 DEVICE = os.getenv(key='DEVICE', default="cpu")
 WEAVIATE_HOST = os.getenv(key='WEAVIATE_HOST', default="localhost")
-WEAVIATE_PORT = os.getenv(key='WEAVIATE_PORT', default=8080)
+WEAVIATE_PORT = os.getenv(key='WEAVIATE_PORT', default="8080")
+
 
 class VectorStoreBuilder:
+    """
+    Handles the creation of a vector store from markdown files using a
+    Weaviate client.
+    """
     def __init__(self):
         # Load environment variables
         load_dotenv()
 
-        while not self.check_weaviate_server(host=WEAVIATE_HOST, port=WEAVIATE_PORT):
-            logger.debug("Waiting for the Weaviate server to start...")
-            time.sleep(5)
-        logger.info("Weaviate Server is up!")
-
-        global weaviate_client
-        weaviate_client = weaviate.connect_to_local(host="localhost", port=8080)
-
     @staticmethod
-    def check_weaviate_server(
-            host: str,
-            port: int
-    ) -> bool:
-        try:
-            weaviate.connect_to_local(host=host, port=port)
-            return True
-        except Exception:
-            return False
-
-    @staticmethod
-    def split_in_documents(md_file):
-
+    def split_in_documents(md_file, index_config: IndexConfig):
+        """
+        Splits a markdown file into sections based on headers and optionally
+        performs semantic chunking.
+        :param: md_file: The markdown file content as a string.
+        :param: index_config (IndexConfig): Configuration object specifying the
+                embedding model and split type.
+        :return: List: A list of documents.
+        """
         hf_embedding = HuggingFaceEmbeddings(
-            model_name=SEMANTIC_CHUNKING_MODEL,
+            model_name=index_config.embedding_model_id,
             model_kwargs={'device': DEVICE},
             encode_kwargs={'normalize_embeddings': False}
         )
 
-        headers_to_split_on = [("#", "Header_1"), ("##", "Header_2"), ("###", "Header_3"), ("####", "Header_4")]
+        headers_to_split_on = [("#", "Header_1"),
+                               ("##", "Header_2"),
+                               ("###", "Header_3"),
+                               ("####", "Header_4")]
         text_splitter = MarkdownHeaderTextSplitter(headers_to_split_on=headers_to_split_on)
         sections = text_splitter.split_text(md_file)
-        documents = []
-        for section in sections:
-            # If the documents are too long we split the documents by using semantic chunking
-            if len(section.page_content.split()) > 400:
-                semantic_chunker = SemanticChunker(hf_embedding)
-                chunks = semantic_chunker.split_text(section.page_content)
-                for chunk in chunks:
-                    # Create a new Document for each chunk with appropriate metadata
-                    chunk_document = Document(
-                        page_content=chunk,
-                        metadata=section.metadata
-                    )
-                    documents.append(chunk_document)
-            else:
-                documents.append(section)
-        return documents
+
+        if index_config.split_type == SplitType.SEMANTIC:
+            return semantic_split_sections(sections, hf_embedding)
+
+        return paragraph_split_sections(sections)
 
     @staticmethod
-    def vector_store_from_documents(documents):
+    def vector_store_from_documents(documents, weaviate_client, index_config):
+        """
+        Creates a Weaviate vector store from the provided documents.
+        :param: documents (List): A list of documents representing
+                the documents to be stored.
+        :param: weaviate_client (weaviate.Client): An instance of the Weaviate client.
+        :param: index_config (IndexConfig): Configuration object specifying the
+                embedding model and index name.
+        :return: tuple: A tuple containing the index name and the number of documents
+                stored in the vector store.
+        """
         hf_embedding = HuggingFaceEmbeddings(
             model_name=SEMANTIC_CHUNKING_MODEL,
             model_kwargs={'device': DEVICE},
             encode_kwargs={'normalize_embeddings': False}
         )
+        index_name = index_config.index_name
         try:
-            vector_store = WeaviateVectorStore.from_documents(documents, hf_embedding, client=weaviate_client, index_name="altin")
-            return vector_store
+            WeaviateVectorStore.from_documents(documents=documents,
+                                               embedding=hf_embedding,
+                                               client=weaviate_client,
+                                               index_name=index_name)
+            return index_name, len(documents)
         except Exception as e:
-            logger.error(f"Error while creating the Weaviate vector store.")
+            logger.error("Error while creating the Weaviate Vector Store.")
             raise e

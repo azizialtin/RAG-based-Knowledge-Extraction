@@ -1,3 +1,7 @@
+"""
+Altin Azizi - RAG Based Knowledge Extraction
+"""
+
 from .vector_store_builder import VectorStoreBuilder
 
 __all__ = ['VectorStoreBuilder']

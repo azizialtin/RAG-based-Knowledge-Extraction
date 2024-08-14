@@ -1,4 +1,8 @@
-from .data_cleaner import Markdown_Cleaner
+"""
+Altin Azizi - RAG Based Knowledge Extraction
+"""
 
-__all__ = ['Markdown_Cleaner']
+from .data_cleaner import MarkdownCleaner
+
+__all__ = ['MarkdownCleaner']
 __version__ = "0.1.0"
