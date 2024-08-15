@@ -4,31 +4,54 @@ This module defines methods for building a vector store.
 """
 import os
 from dotenv import load_dotenv
-from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.vectorstores import Chroma
 from langchain.text_splitter import MarkdownHeaderTextSplitter
-from langchain_weaviate.vectorstores import WeaviateVectorStore
 from loguru import logger
+
 from src.models import SplitType, IndexConfig
 from src.utils import semantic_split_sections, paragraph_split_sections
 
-SEMANTIC_CHUNKING_MODEL = os.getenv(key='SEMANTIC_CHUNKING_MODEL',
-                                    default="sentence-transformers/all-MiniLM-L6-v2")
+# Load environment variables at the beginning of the script
+load_dotenv()
 DEVICE = os.getenv(key='DEVICE', default="cpu")
-WEAVIATE_HOST = os.getenv(key='WEAVIATE_HOST', default="localhost")
-WEAVIATE_PORT = os.getenv(key='WEAVIATE_PORT', default="8080")
 
 
 class VectorStoreBuilder:
     """
     Handles the creation of a vector store from markdown files using a
-    Weaviate client.
+    Vector Store client.
     """
+    HEADERS_TO_SPLIT_ON = [
+        ("#", "Header_1"),
+        ("##", "Header_2"),
+        ("###", "Header_3"),
+        ("####", "Header_4")
+    ]
+
     def __init__(self):
-        # Load environment variables
-        load_dotenv()
+        """
+        Initializes an instance of the VectorStoreBuilder class.
+        """
 
     @staticmethod
-    def split_in_documents(md_file, index_config: IndexConfig):
+    def _create_embedding(
+            embedding_model_id: str
+    ) -> HuggingFaceEmbeddings:
+        """
+        Creates a HuggingFace embedding model based on the given
+        index configuration.
+        :param embedding_model_id: embedding model id.
+        :return: HuggingFaceEmbeddings object.
+        """
+        return HuggingFaceEmbeddings(
+            model_name=embedding_model_id,
+            model_kwargs={'device': DEVICE},
+            encode_kwargs={'normalize_embeddings': False}
+        )
+
+    @staticmethod
+    def split_in_documents(md_file: str, index_config: IndexConfig) -> list:
         """
         Splits a markdown file into sections based on headers and optionally
         performs semantic chunking.
@@ -37,17 +60,18 @@ class VectorStoreBuilder:
                 embedding model and split type.
         :return: List: A list of documents.
         """
-        hf_embedding = HuggingFaceEmbeddings(
-            model_name=index_config.embedding_model_id,
-            model_kwargs={'device': DEVICE},
-            encode_kwargs={'normalize_embeddings': False}
-        )
+        try:
+            hf_embedding = VectorStoreBuilder._create_embedding(
+                embedding_model_id=index_config.embedding_model_id
+            )
+        except Exception as e:
+            logger.error("Error while creating embedding model, "
+                         "make sure the provided name is correct.")
+            raise e
 
-        headers_to_split_on = [("#", "Header_1"),
-                               ("##", "Header_2"),
-                               ("###", "Header_3"),
-                               ("####", "Header_4")]
-        text_splitter = MarkdownHeaderTextSplitter(headers_to_split_on=headers_to_split_on)
+        text_splitter = MarkdownHeaderTextSplitter(
+            headers_to_split_on=VectorStoreBuilder.HEADERS_TO_SPLIT_ON
+        )
         sections = text_splitter.split_text(md_file)
 
         if index_config.split_type == SplitType.SEMANTIC:
@@ -56,29 +80,36 @@ class VectorStoreBuilder:
         return paragraph_split_sections(sections)
 
     @staticmethod
-    def vector_store_from_documents(documents, weaviate_client, index_config):
+    def vector_store_from_documents(
+            documents: list,
+            index_config: IndexConfig
+    ):
         """
-        Creates a Weaviate vector store from the provided documents.
+        Creates a vector store from the provided documents.
         :param: documents (List): A list of documents representing
                 the documents to be stored.
-        :param: weaviate_client (weaviate.Client): An instance of the Weaviate client.
         :param: index_config (IndexConfig): Configuration object specifying the
                 embedding model and index name.
-        :return: tuple: A tuple containing the index name and the number of documents
-                stored in the vector store.
+        :return: tuple: A tuple containing the index name and the
+                number of documents stored in the vector store.
         """
         hf_embedding = HuggingFaceEmbeddings(
-            model_name=SEMANTIC_CHUNKING_MODEL,
-            model_kwargs={'device': DEVICE},
+            model_name=index_config.embedding_model_id,
+            model_kwargs= {'device': DEVICE},
             encode_kwargs={'normalize_embeddings': False}
         )
         index_name = index_config.index_name
+
         try:
-            WeaviateVectorStore.from_documents(documents=documents,
-                                               embedding=hf_embedding,
-                                               client=weaviate_client,
-                                               index_name=index_name)
+            chroma_vs = Chroma.from_documents(
+                documents=documents,
+                embedding=hf_embedding,
+                persist_directory="../data/docs",
+                collection_name=index_name
+            )
+            chroma_vs.persist()
             return index_name, len(documents)
+
         except Exception as e:
-            logger.error("Error while creating the Weaviate Vector Store.")
+            logger.error(f"Error while creating the Vector Store. {e}")
             raise e

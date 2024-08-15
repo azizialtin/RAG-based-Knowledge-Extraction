@@ -1,18 +1,54 @@
-# pylint:disable = import-error, too-few-public-methods
+# pylint:disable = import-error, too-few-public-methods, line-too-long, fixme
 """
 This module defines all methods needed for the RAG pipeline
 """
+from operator import itemgetter
 
-from langchain import hub
-from langchain_core.runnables import RunnablePassthrough
-from langchain_core.output_parsers import StrOutputParser
-from langchain_huggingface import HuggingFacePipeline
+from langchain.memory import ConversationBufferMemory
+from langchain.prompts.prompt import PromptTemplate
+from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
+from langchain_community.llms.ollama import Ollama
+from langchain_core.messages import get_buffer_string
+from langchain_core.runnables import RunnableLambda, RunnablePassthrough
+from langchain_core.prompts import format_document, ChatPromptTemplate
+from langchain_core.vectorstores import VectorStoreRetriever
+
+
+# TODO: Move the prompts into jinja2 files
+CONDENSE_QUESTION_PROMPT = PromptTemplate.from_template(
+    """Given the following conversation and a follow-up question, rephrase the follow-up question to be a standalone question.
+
+    Chat History:
+    {chat_history}
+
+    Follow Up Input: {question}
+    Standalone question:"""
+)
+
+ANSWER_PROMPT = ChatPromptTemplate.from_template(
+    """### Instruction:
+    You're a helpful research assistant, who answers questions based on provided context information in a clear and easy-to-understand way.
+    If there is no information, or the information is irrelevant to answering the question, simply reply that you can't answer.
+    Use the same language as the language used in the question below.
+    Formulate the answer enthusiastically using emojis only if necessary.
+
+    ## Context:
+    {context}
+
+    ## Question:
+    {question}"""
+)
+
+DEFAULT_DOCUMENT_PROMPT = PromptTemplate.from_template(
+    template="Document: {page_content}"
+)
 
 
 class RAGPipeline:
     """
-    Class that encapsulates the RAG pipeline, providing methods for interacting with
-    a retriever and a language model to generate contextually aware responses.
+    Class that encapsulates the RAG pipeline, providing methods
+    for interacting witha retriever and a language model to
+    generate contextually aware responses.
     """
 
     def __init__(self):
@@ -21,38 +57,86 @@ class RAGPipeline:
         """
 
     @staticmethod
-    def chat(retriever, model_id, message):
+    def _combine_documents(
+            documents: list,
+            document_prompt: PromptTemplate = DEFAULT_DOCUMENT_PROMPT,
+            document_separator: str = "\n\n"
+    ) -> str:
         """
-        Generates a response by combining document retrieval and language model generation.
-        This method first retrieves relevant documents using the provided retriever and then
-        uses a HuggingFace language model to generate a response based on the retrieved documents
-        and the given message.
-        :param retriever: The document retriever used to fetch relevant documents.
-        :param model_id: The identifier for the HuggingFace model used for text generation
-        :param message: The input message or question that the pipeline will respond to.
-        :return:
+        Combines a list of documents into a single string, formatted
+        according to the provided prompt.
+        :param documents: List of documents to combine.
+        :param document_prompt: The prompt template to use for
+        formatting each document.
+        :param document_separator: The separator to use between
+        documents.
+        :return: A single string containing all combined and
+        formatted documents.
         """
-        def format_docs(docs):
-            return "\n\n".join(doc.page_content for doc in docs)
+        doc_strings = [format_document(document, document_prompt) for document in documents]
+        return document_separator.join(doc_strings)
 
+    @staticmethod
+    def get_chat_chain(
+            llm: Ollama,
+            retriever: VectorStoreRetriever,
+            memory: ConversationBufferMemory
+    ):
+        """
+        Constructs the RAG pipeline's chat chain.
+        :param llm: The language model to use for generating responses.
+        :param retriever: The retriever used to fetch relevant documents.
+        :param memory: The memory object that maintains chat history.
+        :return: A function that takes a question as input and returns
+        the answer along with retrieved documents.
+        """
 
-        llm = HuggingFacePipeline.from_model_id(
-            model_id=model_id,
-            task="text-generation",
-            pipeline_kwargs={
-                "max_new_tokens": 100,
-                "top_k": 50,
-                "temperature": 0.1,
-            },
-        )
+        def load_memory_chain():
+            return RunnablePassthrough.assign(
+                chat_history=RunnableLambda(memory.load_memory_variables) | itemgetter("history"),
+            )
 
-        prompt = hub.pull("rlm/rag-prompt")
-
-        rag_chain = (
-                {"context": retriever | format_docs, "question": RunnablePassthrough()}
-                | prompt
+        def create_standalone_question_chain():
+            return {
+                "standalone_question": {
+                    "question": lambda x: x["question"],
+                    "chat_history": lambda x: get_buffer_string(x["chat_history"]),
+                }
+                | CONDENSE_QUESTION_PROMPT
                 | llm
-                | StrOutputParser()
+            }
+
+        def retrieve_documents_chain():
+            return {
+                "documents": itemgetter("standalone_question") | retriever,
+                "question": lambda x: x["standalone_question"],
+            }
+
+        def create_final_inputs_chain():
+            return {
+                "context": lambda x: RAGPipeline._combine_documents(x["documents"]),
+                "question": itemgetter("question"),
+            }
+
+        def create_answers_chain():
+            return {
+                "answer": create_final_inputs_chain()
+                | ANSWER_PROMPT
+                | llm.with_config(callbacks=[StreamingStdOutCallbackHandler()]),
+                "documents": itemgetter("documents"),
+            }
+
+        final_chain = (
+            load_memory_chain()
+            | create_standalone_question_chain()
+            | retrieve_documents_chain()
+            | create_answers_chain()
         )
 
-        rag_chain.invoke(message)
+        def chat(question: str):
+            inputs = {"question": question}
+            result = final_chain.invoke(inputs)
+            memory.save_context(inputs, {"answer": result["answer"]})
+            return result
+
+        return chat
