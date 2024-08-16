@@ -45,13 +45,21 @@ async def lifespan(fastapi_app: FastAPI) -> None:
     logger.debug("RAG Pipeline is shutting down.")
 
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(
+    title="RAG API",
+    description="This API allows you to create vector stores from markdown files and generate "
+                "chat responses using a RAG (Retrieval-Augmented Generation) pipeline.",
+    version="0.1.0",
+    lifespan=lifespan
+)
 
 
 @app.post(
     "/v1/chat/completion/",
     operation_id="chat_completion",
-    summary="Creates a response for the given message."
+    summary="Generate a chat response",
+    response_description="The generated chat response",
+    tags=["Chat Completion"]
 )
 async def chat_completion(request: CompletionRequest):
     """
@@ -104,7 +112,10 @@ async def chat_completion(request: CompletionRequest):
 @app.post(
     "/v1/vector_store/docs/",
     operation_id="create_vs_docs_from_markdown",
-    summary="Creates a vector store from a markdown file."
+    summary="Create a vector store from a markdown file",
+    response_model=CreatedVectorStoreResponse,
+    response_description="Details of the created vector store",
+    tags=["Vector Store Creation"]
 )
 def create_vs_docs_from_markdown(
         index_config: IndexConfig = Depends(check_json),
