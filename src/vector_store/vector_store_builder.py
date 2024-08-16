@@ -61,6 +61,7 @@ class VectorStoreBuilder:
         :return: List: A list of documents.
         """
         try:
+            logger.info("Loading the Hugging Face embedding model.")
             hf_embedding = VectorStoreBuilder._create_embedding(
                 embedding_model_id=index_config.embedding_model_id
             )

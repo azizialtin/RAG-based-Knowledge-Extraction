@@ -11,10 +11,10 @@ pydantic~=2.8.2
 starlette~=0.37.2
 python-dotenv~=1.0.1
 langchain-core~=0.2.32
-langchain_experimental
 langchain==0.2.1
 langchain-community==0.2.1
 python-multipart
-langchain-experimental~=0.0.64
+langchain-experimental
 exceptiongroup~=1.2.2
 SQLAlchemy~=2.0.32
+sentence_transformers
