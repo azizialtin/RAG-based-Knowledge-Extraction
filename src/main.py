@@ -49,7 +49,7 @@ app = FastAPI(lifespan=lifespan)
 
 
 @app.post(
-    "/v1/chat/completion",
+    "/v1/chat/completion/",
     operation_id="chat_completion",
     summary="Creates a response for the given message."
 )
