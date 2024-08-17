@@ -6,12 +6,12 @@ The API allows users to create a vector store from Markdown files and generate c
 ## Prerequisites
 
 * Python = 3.10
-* Ollama version 0.1.26 or higher.
+* Ollama version 0.1.26 or higher. (https://ollama.com/)
 
 ## Setup
 
 1. **Clone the Repository:** Clone this repository to your local machine.
-2. **Create a Python virtual environment**: run `running python3 -m venv .venv`
+2. **Create a Python virtual environment**: run `python3 -m venv .venv`
 3. **Activate the virtual environment**: run source `.venv/bin/activate` on Unix or MacOS, 
 or `.\.venv\Scripts\activate` on Windows
 4. **Install Dependencies:** run `pip install -r requirements.txt`
@@ -20,7 +20,7 @@ or `.\.venv\Scripts\activate` on Windows
 1. Ensure your virtual environment is activated
 2. Run the main script with `python main.py`
 
-### Usage
+## Usage
 The project offers two primary functionalities:
 
 * Vector Store Creation: Upload Markdown files and automatically 
@@ -28,7 +28,7 @@ create a vector store for efficient information retrieval.
 * Chat Completion: Generate context-aware chat responses using a 
 RAG pipeline that integrates document retrieval with conversational AI.
 
-#### Creating a Vector Store from Markdown
+### Creating a Vector Store from Markdown
 To create a vector store from a Markdown file, send a POST request to the `/v1/vector_store/docs/`endpoint with the Markdown file attached.
 This saves the vector store locally, and it can be loaded later during generation.
 
@@ -47,7 +47,7 @@ POST /v1/vector_store/docs/
 `inserted_count`: Number of documents inserted into the vector store.
 
 **Example in postman:**
-![img.png](data%2Fimages_readme%2Fimg.png)
+![img.png](data/images_readme/img.png)
 
 **Sample** `index_config`:
 ```
@@ -82,7 +82,7 @@ POST /v1/chat/completion/
 `answer`: The generated chat response.
 
 **Example in Postman**
-![img_1.png](data%2Fimages_readme%2Fimg_1.png)
+![img_1.png](data/images_readme/img_1.png)
 
 ## RAG Pipeline Explained
 The Retrieval-Augmented Generation (RAG) pipeline enhances response generation by integrating document retrieval with conversational AI. The pipeline includes the following steps:
@@ -93,6 +93,7 @@ If a chunk is too large, it splits further by paragraph or using semantic splitt
 **Pipeline Steps::**
 * **Standalone question:** Transforms the user's message into a standalone question.
 * **Retrieve Documents:** Retrieves relevant documents based on the question.
+* **Rerank and Compress Documents:** The retrieved documents are reranked and the number of relevant documents is decreased. 
 * **Input Construction:** Combines the retrieved documents with the original question to generate the final response.
 
 

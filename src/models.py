@@ -72,6 +72,19 @@ class RetrievalConfigs(BaseModel):
     top_k: int
 
 
+class RerankingConfigs(BaseModel):
+    """
+    Model representing the configuration for reranking tasks.
+    Attributes:
+        model_id (str): The identifier for the model used to generate
+        embeddings for reranking.
+        top_k (int): The number of top documents to compress to
+        after reranking.
+    """
+    model_id: str
+    top_k: int
+
+
 class ChatConfigs(BaseModel):
     """
     Model representing the overall configuration for a chat session.
@@ -83,8 +96,9 @@ class ChatConfigs(BaseModel):
         for the retrieval model.
     """
     index_name: str
-    generation_configs: GenerationConfigs
     retrieval_configs: RetrievalConfigs
+    reranking_configs: RerankingConfigs
+    generation_configs: GenerationConfigs
 
 
 class CompletionRequest(BaseModel):
@@ -97,3 +111,14 @@ class CompletionRequest(BaseModel):
     """
     message: str
     configs: ChatConfigs
+
+
+class CompletionResponse(BaseModel):
+    """
+    Model representing a response for chat completion.
+    Attributes:
+        answer (str): The input message to be processed.
+        relevant_documents (str): Retrieved documents from the retriever
+    """
+    answer: str
+    relevant_documents: str

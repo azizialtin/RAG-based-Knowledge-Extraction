@@ -9,16 +9,14 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, File, UploadFile, Depends, HTTPException
 from langchain.memory import ConversationBufferMemory
 from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_community.llms.ollama import Ollama
 from langchain_community.vectorstores import Chroma
 from loguru import logger
 import uvicorn
 from data_processing import MarkdownCleaner
 
-from src.rag.language_models import is_model_available
 from src.models import (IndexConfig,
                         CreatedVectorStoreResponse,
-                        CompletionRequest)
+                        CompletionRequest, CompletionResponse)
 from src.rag.rag_pipeline import RAGPipeline
 from src.utils import check_json
 from vector_store import VectorStoreBuilder
@@ -32,7 +30,7 @@ async def lifespan(fastapi_app: FastAPI) -> None:
     :return: None.
     """
     warnings.filterwarnings("ignore")
-    logger.debug("RAG Pipeline is up!")
+    logger.info("RAG Pipeline is up!")
 
     # Initialize shared resources
     fastapi_app.state.memory = ConversationBufferMemory(
@@ -42,7 +40,7 @@ async def lifespan(fastapi_app: FastAPI) -> None:
     yield
 
     # Clean up resources if necessary
-    logger.debug("RAG Pipeline is shutting down.")
+    logger.info("RAG Pipeline is shutting down.")
 
 
 app = FastAPI(
@@ -58,6 +56,7 @@ app = FastAPI(
     "/v1/chat/completion/",
     operation_id="chat_completion",
     summary="Generate a chat response",
+    response_model=CompletionResponse,
     response_description="The generated chat response",
     tags=["Chat Completion"]
 )
@@ -72,10 +71,6 @@ async def chat_completion(request: CompletionRequest):
     try:
         top_k = request.configs.retrieval_configs.top_k
         embedding_model = request.configs.retrieval_configs.model_id
-        generative_model = request.configs.generation_configs.model_id
-
-        logger.debug("Checking if the model is available.")
-        is_model_available(generative_model)
 
         logger.debug("Loading the Embedding model from Hugging Face.")
         hf_embedding = HuggingFaceEmbeddings(
@@ -91,15 +86,31 @@ async def chat_completion(request: CompletionRequest):
             embedding_function=hf_embedding
         )
 
+        logger.debug("Initializing the Retriever.")
         retriever = collection.as_retriever(search_kwargs={"k": top_k})
-        llm = Ollama(model=generative_model)
+
+        pipeline = RAGPipeline()
+        logger.debug("Initializing the Reranker.")
+        pipeline.initialize_reranker(
+            base_retriever=retriever,
+            reranker_configs=request.configs.reranking_configs
+        )
+
+        logger.debug("Initializing the LLM.")
+        pipeline.initialize_llm(
+            request.configs.generation_configs
+        )
 
         logger.debug("Creating the Chat Chain.")
-        chat = RAGPipeline.get_chat_chain(llm, retriever, app.state.memory)
+        chat = pipeline.get_chat_chain(app.state.memory)
 
         logger.debug("Generating the Chat Response:")
-        answer = chat(request.message)
-        return answer
+        result = chat(request.message)
+        print()
+        return CompletionResponse(
+            answer=result["answer"],
+            relevant_documents=str(result["documents"])
+        )
 
     except Exception as e:
         logger.error(f"Error during chat completion: {e}")

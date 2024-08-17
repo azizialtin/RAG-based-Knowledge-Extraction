@@ -49,7 +49,7 @@ def __is_model_available_locally(model_name: str) -> bool:
         ollama.show(model_name)
         return True
     except ollama.ResponseError:
-        # If ResponseError is raised, the model is not available
+        # If ResponseError is raised, the model is not locally available
         return False
 
 

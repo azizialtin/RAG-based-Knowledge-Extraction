@@ -11,8 +11,12 @@ from langchain_community.llms.ollama import Ollama
 from langchain_core.messages import get_buffer_string
 from langchain_core.runnables import RunnableLambda, RunnablePassthrough
 from langchain_core.prompts import format_document, ChatPromptTemplate
+from langchain.retrievers import ContextualCompressionRetriever
+from langchain.retrievers.document_compressors import FlashrankRerank
 from langchain_core.vectorstores import VectorStoreRetriever
-
+from loguru import logger
+from src.models import RerankingConfigs, GenerationConfigs
+from src.rag.language_models import is_model_available
 
 # TODO: Move the prompts into jinja2 files
 CONDENSE_QUESTION_PROMPT = PromptTemplate.from_template(
@@ -55,6 +59,31 @@ class RAGPipeline:
         """
         Initializes an instance of the RAGPipeline class.
         """
+        # Set up the reranked retriever
+        self.compression_retriever = None
+        #Set up the llm
+        self.llm = None
+
+    def initialize_reranker(
+            self,
+            base_retriever: VectorStoreRetriever,
+            reranker_configs: RerankingConfigs
+    ):
+        compressor = FlashrankRerank(
+            model=reranker_configs.model_id,
+            top_n=reranker_configs.top_k
+        )
+        self.compression_retriever = ContextualCompressionRetriever(
+            base_compressor=compressor, base_retriever=base_retriever
+        )
+
+    def initialize_llm(self, gen_configs: GenerationConfigs):
+        llm = Ollama(model=gen_configs.model_id)
+
+        logger.debug("Checking if the LLM is available.")
+        is_model_available(gen_configs.model_id)
+
+        self.llm = llm
 
     @staticmethod
     def _combine_documents(
@@ -76,10 +105,8 @@ class RAGPipeline:
         doc_strings = [format_document(document, document_prompt) for document in documents]
         return document_separator.join(doc_strings)
 
-    @staticmethod
     def get_chat_chain(
-            llm: Ollama,
-            retriever: VectorStoreRetriever,
+            self,
             memory: ConversationBufferMemory
     ):
         """
@@ -103,12 +130,12 @@ class RAGPipeline:
                     "chat_history": lambda x: get_buffer_string(x["chat_history"]),
                 }
                 | CONDENSE_QUESTION_PROMPT
-                | llm
+                | self.llm
             }
 
         def retrieve_documents_chain():
             return {
-                "documents": itemgetter("standalone_question") | retriever,
+                "documents": itemgetter("standalone_question") | self.compression_retriever,
                 "question": lambda x: x["standalone_question"],
             }
 
@@ -122,7 +149,7 @@ class RAGPipeline:
             return {
                 "answer": create_final_inputs_chain()
                 | ANSWER_PROMPT
-                | llm.with_config(callbacks=[StreamingStdOutCallbackHandler()]),
+                | self.llm.with_config(callbacks=[StreamingStdOutCallbackHandler()]),
                 "documents": itemgetter("documents"),
             }
 
