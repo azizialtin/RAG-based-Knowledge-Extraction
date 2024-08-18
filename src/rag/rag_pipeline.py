@@ -17,41 +17,23 @@ from langchain_core.vectorstores import VectorStoreRetriever
 from loguru import logger
 from src.models import RerankingConfigs, GenerationConfigs
 from src.rag.language_models import is_model_available
+from src.utils import load_text_file
 
-# TODO: Move the prompts into jinja2 files
-CONDENSE_QUESTION_PROMPT = PromptTemplate.from_template(
-    """Given the following conversation and a follow-up question, rephrase the follow-up question to be a standalone question.
+# Load the text file
+ANSWER_GENERATION_PATH = './rag/prompt_templates/answer_generation_prompt.txt'
+CONDENSE_QUESTION_PATH = './rag/prompt_templates/condense_question_prompt.txt'
+DEFAULT_DOCUMENT_PATH = './rag/prompt_templates/default_document_prompt.txt'
 
-    Chat History:
-    {chat_history}
-
-    Follow Up Input: {question}
-    Standalone question:"""
-)
-
-ANSWER_PROMPT = ChatPromptTemplate.from_template(
-    """### Instruction:
-    You're a helpful research assistant, who answers questions based on provided context information in a clear and easy-to-understand way.
-    If there is no information, or the information is irrelevant to answering the question, simply reply that you can't answer.
-    Use the same language as the language used in the question below.
-    Formulate the answer enthusiastically using emojis only if necessary.
-
-    ## Context:
-    {context}
-
-    ## Question:
-    {question}"""
-)
-
-DEFAULT_DOCUMENT_PROMPT = PromptTemplate.from_template(
-    template="Document: {page_content}"
-)
+# Load the templates
+ANSWER_PROMPT = ChatPromptTemplate.from_template(load_text_file(ANSWER_GENERATION_PATH))
+CONDENSE_QUESTION_PROMPT = PromptTemplate.from_template(load_text_file(CONDENSE_QUESTION_PATH))
+DEFAULT_DOCUMENT_PROMPT = PromptTemplate.from_template(load_text_file(DEFAULT_DOCUMENT_PATH))
 
 
 class RAGPipeline:
     """
     Class that encapsulates the RAG pipeline, providing methods
-    for interacting witha retriever and a language model to
+    for interacting with a retriever and a language model to
     generate contextually aware responses.
     """
 
@@ -61,7 +43,7 @@ class RAGPipeline:
         """
         # Set up the reranked retriever
         self.compression_retriever = None
-        #Set up the llm
+        # Set up the llm
         self.llm = None
 
     def initialize_reranker(

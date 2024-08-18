@@ -111,3 +111,13 @@ def paragraph_split_sections(sections: List[Document]):
             )
 
     return documents
+
+
+def load_text_file(file_path: str) -> str:
+    """
+    Reads a txt file and returns a string.
+    :param file_path: path of the file
+    :return: string
+    """
+    with open(file_path, 'r', encoding='utf-8') as file:
+        return file.read()

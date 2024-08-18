@@ -82,6 +82,8 @@ POST /v1/chat/completion/
 `answer`: The generated chat response.
 
 **Example in Postman**
+![img_2.png](data/images_readme/img_2.png)
+
 ![img_1.png](data/images_readme/img_1.png)
 
 ## RAG Pipeline Explained
@@ -96,8 +98,33 @@ If a chunk is too large, it splits further by paragraph or using semantic splitt
 * **Rerank and Compress Documents:** The retrieved documents are reranked and the number of relevant documents is decreased. 
 * **Input Construction:** Combines the retrieved documents with the original question to generate the final response.
 
+### Models Used in the RAG Pipeline
 
-## Libraries Used 
-* **Langchain:** A Python library for working with Large Language Model
-* **Ollama:** A platform for running Large Language models locally.
-* **Chroma:** A vector database for storing and retrieving embeddings.
+**1. Retriever Model:**
+   - The retriever model is responsible for finding relevant documents based on the user's query.
+   - **Supported Models:** You can use any model from the [Hugging Face Model Hub](https://huggingface.co/models) that is compatible with the `sentence-transformers` library.
+   - **Example Models:**
+     - `sentence-transformers/all-MiniLM-L6-v2`
+     - `sentence-transformers/all-MiniLM-L12-v2`
+     - `intfloat/multilingual-e5-large`
+     - `intfloat/multilingual-e5-base`
+   
+**2. Reranker Model:**
+   - After retrieval, documents are reranked to improve relevance. This step uses models supported by [FlashRank](https://github.com/PrithivirajDamodaran/FlashRank).
+   - **Supported Models:** FlashRank supports several reranking models. You can find a list of supported models in the FlashRank documentation.
+     - `ms-marco-TinyBERT-L-2-v2`
+     - `ms-marco-MiniLM-L-12-v2`
+     - `ms-marco-MultiBERT-L-12`
+     - `ce-esci-MiniLM-L12-v2`
+     - `rank_zephyr_7b_v1_full`
+     - `miniReranker_arabic_v1`
+
+**3. Generator Model:**
+   - The generator model creates the final response by integrating the retrieved documents with the user’s query.
+   - **Supported Models:** Models supported by [Ollama](https://ollama.com/) check the site for the full list.
+   - **Example Models:**
+     - `llama3.1:8b`, `llama3.1:70b`, `llama3.1:405b`
+     - `gemma2:2b`, `gemma2:9b`, `gemma2:27b`
+     - `mistral`, `mistral-nemo`, `mistral-large`
+     - `mixtral:8x7b`, `mixtral:8x22b` 
+     

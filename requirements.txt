@@ -19,3 +19,4 @@ exceptiongroup~=1.2.2
 SQLAlchemy~=2.0.32
 sentence_transformers
 flashrank
+jinja2==3.1.*
