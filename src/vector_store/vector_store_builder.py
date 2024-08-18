@@ -10,7 +10,7 @@ from langchain.text_splitter import MarkdownHeaderTextSplitter
 from loguru import logger
 
 from src.models import SplitType, IndexConfig
-from src.utils import semantic_split_sections, paragraph_split_sections
+from src.utils import semantic_split_sections, recursive_split_sections
 
 # Load environment variables at the beginning of the script
 load_dotenv()
@@ -79,7 +79,7 @@ class VectorStoreBuilder:
         if index_config.split_type == SplitType.SEMANTIC:
             return semantic_split_sections(sections, hf_embedding)
 
-        return paragraph_split_sections(sections)
+        return recursive_split_sections(sections)
 
     @staticmethod
     def vector_store_from_documents(

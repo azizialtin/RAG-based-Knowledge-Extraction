@@ -102,13 +102,15 @@ If a chunk is too large, it splits further by paragraph or using semantic splitt
 
 **1. Retriever Model:**
    - The retriever model is responsible for finding relevant documents based on the user's query.
+   - **Important:** These are also the models that can be used to create the embeddings in the vectore store. The model used for retrieval should have the same dimensionality as the model used for creating the vectors in the vector-store.
    - **Supported Models:** You can use any model from the [Hugging Face Model Hub](https://huggingface.co/models) that is compatible with the `sentence-transformers` library.
    - **Example Models:**
      - `sentence-transformers/all-MiniLM-L6-v2`
      - `sentence-transformers/all-MiniLM-L12-v2`
      - `intfloat/multilingual-e5-large`
      - `intfloat/multilingual-e5-base`
-   
+     - `sentence-transformers/all-mpnet-base-v2`
+     
 **2. Reranker Model:**
    - After retrieval, documents are reranked to improve relevance. This step uses models supported by [FlashRank](https://github.com/PrithivirajDamodaran/FlashRank).
    - **Supported Models:** FlashRank supports several reranking models. You can find a list of supported models in the FlashRank documentation.

@@ -2,7 +2,7 @@
 import unittest
 from fastapi import HTTPException
 from langchain_core.documents import Document
-from src.utils import check_json, semantic_split_sections, paragraph_split_sections
+from src.utils import check_json, semantic_split_sections, recursive_split_sections
 
 
 class MockEmbeddingModel:
@@ -43,7 +43,7 @@ class TestUtils(unittest.TestCase):
             metadata={"source": "test_source"}
         )]
 
-        split_documents = paragraph_split_sections(documents)
+        split_documents = recursive_split_sections(documents)
         self.assertEqual(len(split_documents), 1)
         self.assertEqual(split_documents[0].page_content, "Single line without paragraph split.")
 

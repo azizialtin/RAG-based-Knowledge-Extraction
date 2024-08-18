@@ -5,6 +5,7 @@ This module defines utility functions and methods.
 from typing import List
 from langchain_core.documents import Document
 from langchain_experimental.text_splitter import SemanticChunker
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from fastapi import HTTPException, Form
 from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
@@ -66,51 +67,25 @@ def semantic_split_sections(sections: List[Document], hf_embedding):
     return documents
 
 
-def paragraph_split_sections(sections: List[Document]):
+def recursive_split_sections(sections: List[Document]):
     """
-    Splits a list of documents into smaller sections based on paragraphs.
-    This function splits the content of each document by paragraphs,
-    keeping related
-    lines together, such as bullet points. Each paragraph is treated
-    as a new document.
-    :param: sections (List[Document]): The list of documents to be split.
-    :return: List[Document]: A list of documents, where each paragraph
-    is a separate document.
+    Splits a list of document sections into smaller chunks using a recursive
+    character splitter.
+    :param sections: (List[Document]): A list of Document objects to be split.
+    :return: List[Document]: A list of Document objects where each section has
+    been split into smaller chunks.
     """
-    documents = []
-    for section in sections:
-        content = section.page_content
-        paragraphs = []
-        current_paragraph = []
+    chunk_size = 1900
+    chunk_overlap = 100
 
-        for line in content.splitlines():
-            line = line.strip()
-            # Bullet points start a new paragraph
-            if line.startswith(("-", "*")):
-                if current_paragraph:
-                    paragraphs.append(" ".join(current_paragraph))
-                    current_paragraph = []
-                current_paragraph.append(line)
-            elif line:
-                current_paragraph.append(line)
-            else:
-                if current_paragraph:
-                    paragraphs.append(" ".join(current_paragraph))
-                    current_paragraph = []
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
+        separators=["\n\n\n", "\n\n", "\n", "."]
+    )
 
-        # Add the last paragraph if there's any content left
-        if current_paragraph:
-            paragraphs.append(" ".join(current_paragraph))
-
-        # Create a new Document for each paragraph
-        for paragraph in paragraphs:
-            documents.append(
-                Document(
-                    page_content=paragraph,
-                    metadata=section.metadata)
-            )
-
-    return documents
+    splits = text_splitter.split_documents(sections)
+    return splits
 
 
 def load_text_file(file_path: str) -> str:
