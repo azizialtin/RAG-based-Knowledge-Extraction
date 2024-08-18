@@ -57,6 +57,7 @@ def __pull_model(name: str) -> None:
     """
     Pulls the model with the specified name using Ollama, showing progress.
     :param name: Name of the model to pull.
+    :return: None
     """
     current_digest, bars = "", {}
     # Pull the model with streaming progress

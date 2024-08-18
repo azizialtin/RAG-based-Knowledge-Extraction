@@ -125,8 +125,6 @@ class RAGPipeline:
     ):
         """
         Constructs the RAG pipeline's chat chain.
-        :param llm: The language model to use for generating responses.
-        :param retriever: The retriever used to fetch relevant documents.
         :param memory: The memory object that maintains chat history.
         :return: A function that takes a question as input and returns
         the answer along with retrieved documents.

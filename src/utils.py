@@ -35,7 +35,7 @@ def check_json(index_config: str = Form(...)):
         ) from e
 
 
-def semantic_split_sections(sections: List[Document], ol_embedding):
+def semantic_split_sections(sections: List[Document], hf_embedding):
     """
     Splits a list of documents into smaller chunks using semantic chunking.
     This function uses a HuggingFace embedding model to perform semantic
@@ -52,7 +52,7 @@ def semantic_split_sections(sections: List[Document], ol_embedding):
         # If the documents are too long we split the documents by using
         # semantic chunking
         if len(section.page_content.split()) > 400:
-            semantic_chunker = SemanticChunker(ol_embedding)
+            semantic_chunker = SemanticChunker(hf_embedding)
             chunks = semantic_chunker.split_text(section.page_content)
             for chunk in chunks:
                 # Create a new Document for each chunk with metadata
