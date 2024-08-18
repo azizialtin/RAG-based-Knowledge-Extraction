@@ -76,7 +76,7 @@ def recursive_split_sections(sections: List[Document]):
     been split into smaller chunks.
     """
     chunk_size = 1900
-    chunk_overlap = 100
+    chunk_overlap = 200
 
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=chunk_size,

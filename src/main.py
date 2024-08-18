@@ -6,6 +6,8 @@ and generating chat responses.
 """
 import warnings
 from contextlib import asynccontextmanager
+import os
+from dotenv import load_dotenv
 from fastapi import FastAPI, File, UploadFile, Depends, HTTPException
 from langchain.memory import ConversationBufferMemory
 from langchain_community.embeddings import HuggingFaceEmbeddings
@@ -21,6 +23,8 @@ from src.rag.rag_pipeline import RAGPipeline
 from src.utils import check_json
 from vector_store import VectorStoreBuilder
 
+load_dotenv()
+DEVICE = os.getenv(key='DEVICE', default="cpu")
 
 @asynccontextmanager
 async def lifespan(fastapi_app: FastAPI) -> None:
@@ -75,7 +79,7 @@ async def chat_completion(request: CompletionRequest):
         logger.debug("Loading the Embedding model from Hugging Face.")
         hf_embedding = HuggingFaceEmbeddings(
             model_name=embedding_model,
-            model_kwargs={'device': "cpu"},
+            model_kwargs={'device': DEVICE},
             encode_kwargs={'normalize_embeddings': False},
             show_progress=True
         )
