@@ -1,4 +1,4 @@
-# pylint:disable = import-error, too-few-public-methods, line-too-long, fixme
+# pylint:disable = import-error, too-few-public-methods, line-too-long, no-name-in-module, fixme
 """
 This module defines all methods needed for the RAG pipeline
 """
@@ -7,12 +7,12 @@ from operator import itemgetter
 from langchain.memory import ConversationBufferMemory
 from langchain.prompts.prompt import PromptTemplate
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
+from langchain.retrievers import ContextualCompressionRetriever
+from langchain.retrievers.document_compressors import FlashrankRerank
 from langchain_community.llms.ollama import Ollama
 from langchain_core.messages import get_buffer_string
 from langchain_core.runnables import RunnableLambda, RunnablePassthrough
 from langchain_core.prompts import format_document, ChatPromptTemplate
-from langchain.retrievers import ContextualCompressionRetriever
-from langchain.retrievers.document_compressors import FlashrankRerank
 from langchain_core.vectorstores import VectorStoreRetriever
 from loguru import logger
 from src.models import RerankingConfigs, GenerationConfigs
@@ -69,6 +69,14 @@ class RAGPipeline:
             base_retriever: VectorStoreRetriever,
             reranker_configs: RerankingConfigs
     ):
+        """
+        Initializes the reranker
+        :param base_retriever: An instance of `VectorStoreRetriever` that serves
+        as the base retriever for the reranker.
+        :param reranker_configs:  An instance of `RerankingConfigs` containing the
+        configuration settings for the reranker, including the model ID and the
+        number of top results to retain.
+        """
         compressor = FlashrankRerank(
             model=reranker_configs.model_id,
             top_n=reranker_configs.top_k
@@ -78,6 +86,12 @@ class RAGPipeline:
         )
 
     def initialize_llm(self, gen_configs: GenerationConfigs):
+        """
+        Initializes the large language model (LLM) for text generation.
+        :param gen_configs: An instance of `GenerationConfigs` containing the
+        configuration settings for the language model, including the model ID to
+        be used.
+        """
         llm = Ollama(model=gen_configs.model_id)
 
         logger.debug("Checking if the LLM is available.")

@@ -76,7 +76,8 @@ async def chat_completion(request: CompletionRequest):
         hf_embedding = HuggingFaceEmbeddings(
             model_name=embedding_model,
             model_kwargs={'device': "cpu"},
-            encode_kwargs={'normalize_embeddings': False}
+            encode_kwargs={'normalize_embeddings': False},
+            show_progress=True
         )
 
         logger.debug("Loading the persisted Vector Store.")

@@ -47,7 +47,8 @@ class VectorStoreBuilder:
         return HuggingFaceEmbeddings(
             model_name=embedding_model_id,
             model_kwargs={'device': DEVICE},
-            encode_kwargs={'normalize_embeddings': False}
+            encode_kwargs={'normalize_embeddings': False},
+            show_progress=True
         )
 
     @staticmethod
@@ -96,8 +97,9 @@ class VectorStoreBuilder:
         """
         hf_embedding = HuggingFaceEmbeddings(
             model_name=index_config.embedding_model_id,
-            model_kwargs= {'device': DEVICE},
-            encode_kwargs={'normalize_embeddings': False}
+            model_kwargs={'device': DEVICE},
+            encode_kwargs={'normalize_embeddings': False},
+            show_progress=True
         )
         index_name = index_config.index_name
 
